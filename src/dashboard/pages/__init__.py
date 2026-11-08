@@ -8,7 +8,6 @@ from .satellites import satellites_page, SatellitesPage
 from .alerts import alerts_page, AlertsPage
 from .admin import admin_panel, AdminPanel
 
-# Explicitly specify what gets imported with 'from package import *'
 __all__ = [
     'dashboard_page', 'DashboardPage',
     'satellites_page', 'SatellitesPage',

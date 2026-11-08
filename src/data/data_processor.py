@@ -26,7 +26,6 @@ class GNSSDataProcessor:
         """Load and validate the raw data."""
         try:
             df = pd.read_csv(data_path)
-            # Convert utc_time to datetime
             df['utc_time'] = pd.to_datetime(df['utc_time'])
             logger.info(f"Loaded data from {data_path} with shape {df.shape}")
             return df
@@ -36,13 +35,11 @@ class GNSSDataProcessor:
 
     def add_time_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add cyclical time-based features."""
-        # Extract time components from utc_time
         df['hour'] = df['utc_time'].dt.hour
         df['day_of_week'] = df['utc_time'].dt.dayofweek
         df['day_of_month'] = df['utc_time'].dt.day
         df['month'] = df['utc_time'].dt.month
         
-        # Create cyclical features
         df['hour_sin'] = np.sin(2 * np.pi * df['hour']/24)
         df['hour_cos'] = np.cos(2 * np.pi * df['hour']/24)
         df['day_of_week_sin'] = np.sin(2 * np.pi * df['day_of_week']/7)
@@ -50,7 +47,6 @@ class GNSSDataProcessor:
         df['month_sin'] = np.sin(2 * np.pi * df['month']/12)
         df['month_cos'] = np.cos(2 * np.pi * df['month']/12)
         
-        # Add time differences in hours since start
         df['hours_since_start'] = (df['utc_time'] - df['utc_time'].min()).dt.total_seconds() / 3600
         
         logger.info("Added cyclical time features")
@@ -58,7 +54,6 @@ class GNSSDataProcessor:
 
     def add_rolling_features(self, df: pd.DataFrame, windows: List[int] = [6, 12, 24]) -> pd.DataFrame:
         """Add rolling statistics features."""
-        # Only use error columns for rolling features
         error_cols = [col for col in df.columns if 'error' in col.lower()]
         
         for col in error_cols:
@@ -68,7 +63,6 @@ class GNSSDataProcessor:
                 df[f'{col}_rolling_max_{window}'] = df[col].rolling(window=window, min_periods=1).max()
                 df[f'{col}_rolling_min_{window}'] = df[col].rolling(window=window, min_periods=1).min()
         
-        # Fill NaN values with 0
         df = df.fillna(0)
         logger.info(f"Added rolling features with windows {windows}")
         return df
@@ -78,13 +72,10 @@ class GNSSDataProcessor:
         error_cols = [col for col in df.columns if 'error' in col.lower()]
         
         for col in error_cols:
-            # First derivative (rate of change)
             df[f'{col}_diff1'] = df[col].diff().fillna(0)
-            # Second derivative (acceleration)
             df[f'{col}_diff2'] = df[f'{col}_diff1'].diff().fillna(0)
             
-            # Clip derivatives to handle outliers
-            clip_value = df[col].std() * 3  # 3 standard deviations
+            clip_value = df[col].std() * 3
             df[f'{col}_diff1'] = df[f'{col}_diff1'].clip(-clip_value, clip_value)
             df[f'{col}_diff2'] = df[f'{col}_diff2'].clip(-clip_value, clip_value)
         
@@ -96,17 +87,14 @@ class GNSSDataProcessor:
         logger.info(f"Validating data at stage: {stage}")
         logger.info(f"Shape: {df.shape}")
         
-        # Check for NaN values
         nan_cols = df.isna().sum()
         if nan_cols.any():
             logger.warning(f"NaN values found in columns: {nan_cols[nan_cols > 0]}")
             
-        # Check for infinite values
         inf_cols = df.isin([np.inf, -np.inf]).sum()
         if inf_cols.any():
             logger.warning(f"Infinite values found in columns: {inf_cols[inf_cols > 0]}")
             
-        # Log basic statistics for numeric columns only
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         if len(numeric_cols) > 0:
             logger.info(f"Data statistics at {stage}:")
@@ -120,17 +108,13 @@ class GNSSDataProcessor:
         df = df.copy()
         
         for col in error_cols:
-            # Store sign of original values
             signs = np.sign(df[col].values)
             abs_values = np.abs(df[col].values)
             
-            # Apply log1p transformation to handle both small and large values
             transformed = np.log1p(abs_values)
             
-            # Restore original signs
             df[col] = transformed * signs
             
-            # Add indicator for outliers
             q1, q3 = df[col].quantile([0.25, 0.75])
             iqr = q3 - q1
             is_outlier = (df[col] < (q1 - 1.5 * iqr)) | (df[col] > (q3 + 1.5 * iqr))
@@ -142,29 +126,23 @@ class GNSSDataProcessor:
         """Normalize different feature groups with appropriate transformations."""
         df = df.copy()
         
-        # Drop the datetime column before normalization
         if 'utc_time' in df.columns:
             df = df.drop('utc_time', axis=1)
         
-        # Convert all numeric columns to float64
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         df[numeric_cols] = df[numeric_cols].astype('float64')
         
-        # Replace infinite values with large finite values
         df = df.replace([np.inf, -np.inf], [1e10, -1e10])
         
-        # Identify column groups
         error_cols = [col for col in df.columns if 'error' in col.lower() and not col.endswith('_is_outlier')]
         time_cols = [col for col in df.columns if any(x in col.lower() for x in ['sin', 'cos', 'hour', 'day', 'month', 'hours_since'])]
         rolling_cols = [col for col in df.columns if 'rolling' in col.lower()]
         derivative_cols = [col for col in df.columns if 'diff' in col.lower()]
         
-        # Transform error features first
         if error_cols:
             df = self.transform_error_features(df, error_cols)
         
         if is_training:
-            # Fit scalers on transformed data
             if error_cols:
                 self.error_scaler.fit(df[error_cols])
             if time_cols:
@@ -174,7 +152,6 @@ class GNSSDataProcessor:
             if derivative_cols:
                 self.derivative_scaler.fit(df[derivative_cols])
         
-        # Apply scaling transformations
         if error_cols:
             df[error_cols] = self.error_scaler.transform(df[error_cols])
         if time_cols:
@@ -184,7 +161,6 @@ class GNSSDataProcessor:
         if derivative_cols:
             df[derivative_cols] = self.derivative_scaler.transform(df[derivative_cols])
         
-        # Log feature statistics after transformation
         if is_training:
             logger.info("\nFeature statistics after transformation:")
             for col in df.columns:
@@ -195,11 +171,9 @@ class GNSSDataProcessor:
                 logger.info(f"  Min: {stats['min']:.6f}")
                 logger.info(f"  Max: {stats['max']:.6f}")
             
-            # Store min/max for denormalization
             self.min_vals = df.min().values
             self.max_vals = df.max().values
             
-            # Save normalization parameters if save_dir is provided
             if self.save_dir:
                 self.save_normalization_params()
         
@@ -225,7 +199,7 @@ class GNSSDataProcessor:
         
         for i in range(len(data) - sequence_length):
             seq = data[i:i + sequence_length]
-            target = data[i + sequence_length][-1]  # Take the last value as target
+            target = data[i + sequence_length][-1]
             sequences.append(seq)
             targets.append(target)
             
@@ -233,47 +207,35 @@ class GNSSDataProcessor:
 
     def preprocess_data(self, df: pd.DataFrame, is_training: bool = True) -> pd.DataFrame:
         """Preprocess data with enhanced features."""
-        # Validate raw data
         self.validate_data(df, "raw")
         
-        # Add time-based features
         df = self.add_time_features(df)
         
-        # Add rolling features
         df = self.add_rolling_features(df)
         
-        # Add derivatives
         df = self.add_derivatives(df)
         
-        # Validate after feature engineering
         self.validate_data(df, "feature_engineering")
         
-        # Normalize features
         df = self.normalize_features(df, is_training)
         
-        # Validate after normalization
         self.validate_data(df, "normalization")
         
         return df
 
     def prepare_data(self, data_path: str, sequence_length: int, train_split: float = 0.8) -> Dict:
         """Prepare data for training and validation."""
-        # Load and preprocess data
         df = self.load_data(data_path)
         df = self.preprocess_data(df, is_training=True)
         
-        # Convert to numpy array
         data = df.values.astype('float32')
         
-        # Create sequences
         X, y = self.create_sequences(data, sequence_length)
         
-        # Split into train and validation sets
         train_size = int(len(X) * train_split)
         X_train, X_val = X[:train_size], X[train_size:]
         y_train, y_val = y[:train_size], y[train_size:]
         
-        # Convert to PyTorch tensors
         X_train = torch.FloatTensor(X_train)
         X_val = torch.FloatTensor(X_val)
         y_train = torch.FloatTensor(y_train)

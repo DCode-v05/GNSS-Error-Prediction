@@ -13,7 +13,6 @@ import os
 import hashlib
 import binascii
 
-# Path to the users configuration file
 CONFIG_DIR = Path(__file__).parent.parent.parent / "config"
 CONFIG_FILE = CONFIG_DIR / "users.yaml"
 
@@ -37,19 +36,15 @@ class Authenticator:
     def _load_config(self):
         """Load user configuration from YAML file."""
         try:
-            # Ensure config directory exists
             os.makedirs(CONFIG_DIR, exist_ok=True)
             
-            # Create default config if it doesn't exist
             if not CONFIG_FILE.exists():
                 self._create_default_config()
                 return
             
-            # Load existing config
             with open(CONFIG_FILE, 'r', encoding='utf-8') as file:
                 self.config = yaml.load(file, Loader=SafeLoader) or {}
                 
-            # Validate config
             if not self.config or 'credentials' not in self.config:
                 raise ValueError("Invalid configuration: Missing 'credentials' section")
                 
@@ -61,7 +56,6 @@ class Authenticator:
         """Create a default configuration with default users."""
         print("Creating default configuration...")
         
-        # Create default users with pre-hashed passwords
         self.config = {
             'credentials': {
                 'usernames': {
@@ -93,19 +87,16 @@ class Authenticator:
             'preauthorized': None
         }
         
-        # Save the config
         with open(CONFIG_FILE, 'w', encoding='utf-8') as file:
             yaml.dump(self.config, file, default_flow_style=False)
     
     def _initialize_authenticator(self):
         """Initialize the Streamlit authenticator."""
         try:
-            # Create a simplified credentials structure for the authenticator
             credentials = {
                 'usernames': {}
             }
             
-            # Add users to the credentials
             for username, user_data in self.config['credentials']['usernames'].items():
                 credentials['usernames'][username] = {
                     'email': user_data['email'],
@@ -131,7 +122,6 @@ class Authenticator:
             return False
         
         try:
-            # Show login form
             name, authentication_status, username = self.authenticator.login('Login', 'main')
             
             if authentication_status:
@@ -178,8 +168,6 @@ class Authenticator:
             'role': user_data.get('role', 'viewer')
         }
 
-# Create a global authenticator instance
 authenticator = Authenticator()
 
-# Export the authenticator instance
 __all__ = ['authenticator']

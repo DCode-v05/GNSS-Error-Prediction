@@ -10,7 +10,6 @@ from typing import Dict, List, Optional, Union, Tuple
 import pandas as pd
 import torch
 
-# Set style
 sns.set_style("whitegrid")
 plt.rcParams["figure.figsize"] = (12, 6)
 plt.rcParams["font.size"] = 12
@@ -26,7 +25,6 @@ def plot_training_history(history: Dict[str, List[float]],
     """
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
     
-    # Plot loss
     ax1.plot(history['train_loss'], label='Training Loss')
     ax1.plot(history['val_loss'], label='Validation Loss')
     ax1.set_xlabel('Epoch')
@@ -34,7 +32,6 @@ def plot_training_history(history: Dict[str, List[float]],
     ax1.set_title('Training and Validation Loss')
     ax1.legend()
     
-    # Plot learning rate
     if 'lr' in history:
         ax2.plot(history['lr'], label='Learning Rate')
         ax2.set_xlabel('Epoch')
@@ -74,17 +71,14 @@ def plot_predictions(y_true: np.ndarray,
     
     plt.figure(figsize=(14, 6))
     
-    # Plot actual values
     plt.plot(timesteps, y_true, 'b-', label='Actual', alpha=0.7, linewidth=2)
     
-    # Plot predicted values
     plt.plot(timesteps, y_pred, 'r--', label='Predicted', alpha=0.8, linewidth=1.5)
     
-    # Plot uncertainty if available
     if y_std is not None:
         plt.fill_between(
             timesteps,
-            y_pred - 1.96 * y_std,  # 95% confidence interval
+            y_pred - 1.96 * y_std,
             y_pred + 1.96 * y_std,
             color='r',
             alpha=0.2,
@@ -118,10 +112,8 @@ def plot_error_distribution(errors: np.ndarray,
     """
     plt.figure(figsize=(10, 6))
     
-    # Plot histogram of errors
     sns.histplot(errors, kde=True, stat="density", linewidth=0)
     
-    # Plot normal distribution for comparison
     x = np.linspace(errors.min(), errors.max(), 100)
     from scipy.stats import norm
     plt.plot(x, norm.pdf(x, errors.mean(), errors.std()), 'r-', lw=2, 
@@ -153,17 +145,13 @@ def plot_feature_importance(feature_importance: Dict[str, float],
         top_n: Number of top features to show (if None, show all)
         save_path: Path to save the plot (if None, display the plot)
     """
-    # Sort features by importance
     features = sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)
     
-    # Select top N features if specified
     if top_n is not None:
         features = features[:top_n]
     
-    # Unpack features and importance scores
     feature_names, importance = zip(*features)
     
-    # Create horizontal bar plot
     plt.figure(figsize=(10, max(6, len(feature_names) * 0.4)))
     y_pos = np.arange(len(feature_names))
     
@@ -194,19 +182,14 @@ def plot_correlation_matrix(data: pd.DataFrame,
         figsize: Figure size (width, height)
         save_path: Path to save the plot (if None, display the plot)
     """
-    # Calculate correlation matrix
     corr = data.corr()
     
-    # Generate a mask for the upper triangle
     mask = np.triu(np.ones_like(corr, dtype=bool))
     
-    # Set up the matplotlib figure
     plt.figure(figsize=figsize)
     
-    # Generate a custom diverging colormap
     cmap = sns.diverging_palette(230, 20, as_cmap=True)
     
-    # Draw the heatmap with the mask and correct aspect ratio
     sns.heatmap(
         corr,
         mask=mask,

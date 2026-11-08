@@ -29,17 +29,14 @@ class ModelTrainer:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logger.info(f"Using device: {self.device}")
         
-        # Initialize model
         self.model = EnsembleModel(config).to(self.device)
         
-        # Initialize optimizer and loss function
         self.optimizer = optim.Adam(
             self.model.parameters(),
             lr=config['learning_rate']
         )
         self.criterion = nn.MSELoss()
         
-        # Create save directory if it doesn't exist
         self.save_dir = Path(config['save_dir'])
         self.save_dir.mkdir(parents=True, exist_ok=True)
         
@@ -56,11 +53,9 @@ class ModelTrainer:
         Returns:
             DataLoader for the dataset
         """
-        # Convert to PyTorch tensors
         X_tensor = torch.FloatTensor(X).to(self.device)
         y_tensor = torch.FloatTensor(y).to(self.device)
         
-        # Create dataset and dataloader
         dataset = TensorDataset(X_tensor, y_tensor)
         return DataLoader(dataset, batch_size=batch_size, shuffle=True)
         
@@ -78,11 +73,9 @@ class ModelTrainer:
         total_loss = 0
         
         for batch_X, batch_y in train_loader:
-            # Forward pass
             outputs = self.model(batch_X)
             loss = self.criterion(outputs, batch_y)
             
-            # Backward pass and optimize
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -128,7 +121,6 @@ class ModelTrainer:
         Returns:
             Training history
         """
-        # Prepare data loaders
         train_loader = self.prepare_data(
             X_train, y_train,
             batch_size=self.config['batch_size']
@@ -138,7 +130,6 @@ class ModelTrainer:
             batch_size=self.config['batch_size']
         )
         
-        # Initialize tracking variables
         best_val_loss = float('inf')
         patience_counter = 0
         history = {
@@ -147,28 +138,22 @@ class ModelTrainer:
             'ensemble_weights': []
         }
         
-        # Training loop
         for epoch in range(self.config['epochs']):
-            # Train and validate
             train_loss = self.train_epoch(train_loader)
             val_loss = self.validate(val_loader)
             
-            # Get ensemble weights
             weights = self.model.get_model_weights().cpu().detach().numpy()
             
-            # Update history
             history['train_loss'].append(train_loss)
             history['val_loss'].append(val_loss)
             history['ensemble_weights'].append(weights.tolist())
             
-            # Log progress
             logger.info(
                 f"Epoch {epoch+1}/{self.config['epochs']} - "
                 f"Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}, "
                 f"LSTM Weight: {weights[0]:.3f}, Transformer Weight: {weights[1]:.3f}"
             )
             
-            # Early stopping
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 patience_counter = 0
@@ -186,12 +171,10 @@ class ModelTrainer:
         """
         Save the model and training configuration.
         """
-        # Save model
         model_path = self.save_dir / 'model.pth'
         torch.save(self.model.state_dict(), model_path)
         logger.info(f"Model saved to {model_path}")
         
-        # Save config
         config_path = self.save_dir / 'config.json'
         with open(config_path, 'w') as f:
             json.dump(self.config, f, indent=4)
@@ -212,30 +195,25 @@ def main():
     """
     Main training function.
     """
-    # Training configuration
     config = {
-        'input_size': 5,  # Number of features in the dataset
+        'input_size': 5,
         'batch_size': 32,
         'learning_rate': 0.001,
         'epochs': 100,
         'save_dir': 'models/saved/20250930_203944',
         'data_path': 'data/raw/DATA_GEO_Train.csv',
-        'sequence_length': 10 # Example sequence length, adjust as needed
+        'sequence_length': 10
     }
     
-    # Initialize data processor and load data
     data_processor = GNSSDataProcessor(save_dir=Path(config['save_dir']))
     data = data_processor.prepare_data(data_path=config['data_path'], sequence_length=config['sequence_length'])
     X_train, X_val, y_train, y_val = data['X_train'], data['X_val'], data['y_train'], data['y_val']
     config['input_size'] = X_train.shape[-1]
     
-    # Initialize trainer
     trainer = ModelTrainer(config)
     
-    # Train model
     history = trainer.train(X_train, y_train, X_val, y_val)
     
-    # Save training history
     history_path = Path(config['save_dir']) / 'history.json'
     with open(history_path, 'w') as f:
         json.dump(history, f, indent=4)

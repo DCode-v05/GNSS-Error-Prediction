@@ -10,7 +10,6 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 import joblib
 
-# Suppress specific warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
 
 logger = logging.getLogger(__name__)
@@ -30,7 +29,6 @@ class AdvancedGNSSProcessor:
         self.save_dir = Path(save_dir) if save_dir else Path("data/processed")
         self.save_dir.mkdir(parents=True, exist_ok=True)
         
-        # Initialize transformers with parameters from config if available
         scaler_params = config.get('scaler_params', {})
         self.scaler = RobustScaler(**scaler_params)
         self.feature_processor = None
@@ -55,27 +53,24 @@ class AdvancedGNSSProcessor:
         if df.empty:
             return df
             
-        df = df.copy()  # Avoid modifying the original DataFrame
+        df = df.copy()
         
-        # Add satellite type (GEO/MEO)
         if 'sat_id' in df.columns:
-            # Handle potential missing values in sat_id
             valid_sat_ids = df['sat_id'].notna()
             df.loc[valid_sat_ids, 'satellite_type'] = df.loc[valid_sat_ids, 'sat_id'].astype(str).str[0].map({
                 'G': 'GEO',
                 'M': 'MEO',
-                'E': 'MEO',  # Galileo
-                'C': 'MEO',  # BeiDou
-                'R': 'MEO',  # GLONASS
-                'J': 'MEO',  # QZSS
-                'I': 'MEO'   # IRNSS
-            }).fillna('UNKNOWN')  # Default for unknown satellite types
+                'E': 'MEO',
+                'C': 'MEO',
+                'R': 'MEO',
+                'J': 'MEO',
+                'I': 'MEO'
+            }).fillna('UNKNOWN')
             
-            # Add orbital period (approximate in hours)
             orbital_periods = {
                 'GEO': 24.0,
                 'MEO': 12.0,
-                'UNKNOWN': 12.0  # Default
+                'UNKNOWN': 12.0
             }
             df['orbital_period'] = df['satellite_type'].map(orbital_periods)
         
@@ -86,16 +81,13 @@ class AdvancedGNSSProcessor:
         if 'utc_time' not in df.columns:
             return df
             
-        # Ensure utc_time is datetime
         df['utc_time'] = pd.to_datetime(df['utc_time'])
         
-        # Basic time features
         df['hour'] = df['utc_time'].dt.hour
         df['day_of_week'] = df['utc_time'].dt.dayofweek
         df['day_of_month'] = df['utc_time'].dt.day
         df['month'] = df['utc_time'].dt.month
         
-        # Cyclical time features
         df['hour_sin'] = np.sin(2 * np.pi * df['hour']/24)
         df['hour_cos'] = np.cos(2 * np.pi * df['hour']/24)
         df['day_of_week_sin'] = np.sin(2 * np.pi * df['day_of_week']/7)
@@ -103,7 +95,6 @@ class AdvancedGNSSProcessor:
         df['month_sin'] = np.sin(2 * np.pi * df['month']/12)
         df['month_cos'] = np.cos(2 * np.pi * df['month']/12)
         
-        # Orbital position features if available
         if 'orbital_period' in df.columns:
             df['orbital_phase'] = (df['hour'] % df['orbital_period']) / df['orbital_period']
             df['orbital_phase_sin'] = np.sin(2 * np.pi * df['orbital_phase'])
@@ -128,44 +119,34 @@ class AdvancedGNSSProcessor:
         if df.empty:
             return df
             
-        # Make a copy to avoid SettingWithCopyWarning
         df = df.copy()
         
-        # Get error columns
         error_cols = [col for col in df.columns if 'error' in col.lower()]
         if not error_cols:
             return df
         
-        # Group by satellite to calculate rolling stats per satellite
         grouped = df.groupby('sat_id', group_keys=False)
         
-        # Add rolling statistics
         rolling_windows = self.config.get('data', {}).get('rolling_windows', [6, 12, 24])
         
         for col in error_cols:
             for window in rolling_windows:
-                # Calculate rolling mean and fill NaN with 0
                 mean_col = f'{col}_rolling_mean_{window}'
                 df[mean_col] = grouped[col].transform(
                     lambda x: x.rolling(window=window, min_periods=1).mean()
                 ).fillna(0)
                 
-                # Calculate rolling std and fill NaN with 1 (for stability)
                 std_col = f'{col}_rolling_std_{window}'
                 df[std_col] = grouped[col].transform(
                     lambda x: x.rolling(window=window, min_periods=1).std()
-                ).fillna(1.0)  # Fill with 1.0 for stability
+                ).fillna(1.0)
                 
-                # Replace any remaining inf values
                 df[std_col] = df[std_col].replace([np.inf, -np.inf], 1.0)
         
-        # Add error derivatives
         for col in error_cols:
-            # Calculate first difference with forward fill for first value
             diff1 = f'{col}_diff1'
             df[diff1] = grouped[col].diff().fillna(0)
             
-            # Calculate second difference with forward fill for first value
             diff2 = f'{col}_diff2'
             df[diff2] = grouped[diff1].diff().fillna(0)
             
@@ -196,7 +177,6 @@ class AdvancedGNSSProcessor:
             
         self.target_columns = target_columns
         
-        # Add features with error handling for each step
         logger.info("Adding satellite features...")
         df = self._add_satellite_features(df)
         
@@ -206,18 +186,15 @@ class AdvancedGNSSProcessor:
         logger.info("Adding error features...")
         df = self._add_error_features(df)
     
-        # Define feature columns
         numeric_features = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
         categorical_features = [col for col in ['satellite_type'] if col in df.columns]
         
-        # Remove target columns and non-feature columns
         non_feature_cols = ['utc_time', 'sat_id', 'timestamps'] + target_columns
         numeric_features = [col for col in numeric_features if col not in non_feature_cols]
         
         if not numeric_features and not categorical_features:
             raise ValueError("No valid features found after preprocessing")
     
-        # Create preprocessing pipeline with error handling
         try:
             numeric_transformer = Pipeline(steps=[
                 ('scaler', RobustScaler())
@@ -239,10 +216,9 @@ class AdvancedGNSSProcessor:
             self.feature_processor = ColumnTransformer(
                 transformers=transformers,
                 remainder='drop',
-                n_jobs=-1  # Use all available cores
+                n_jobs=-1
             )
             
-            # Fit the processor
             X = df.drop(columns=non_feature_cols, errors='ignore')
             if X.empty:
                 raise ValueError("No features remaining after preprocessing")
@@ -250,7 +226,6 @@ class AdvancedGNSSProcessor:
             logger.info(f"Fitting feature processor with {X.shape[1]} features...")
             self.feature_processor.fit(X)
             
-            # Fit target scaler
             logger.info("Fitting target scaler...")
             self.scaler.fit(df[target_columns])
             
@@ -284,29 +259,24 @@ class AdvancedGNSSProcessor:
             raise ValueError("Input must be a non-empty pandas DataFrame")
             
         try:
-            # Add features
             df = self._add_satellite_features(df)
             df = self._add_temporal_features(df)
             df = self._add_error_features(df)
             
-            # Prepare features and targets
             non_feature_cols = ['utc_time', 'sat_id', 'timestamps'] + (self.target_columns if self.target_columns else [])
             X = df.drop(columns=non_feature_cols, errors='ignore')
             
             if X.empty:
                 raise ValueError("No features remaining after preprocessing")
                 
-            # Check if target columns are present
             has_targets = (self.target_columns is not None and 
                           all(col in df.columns for col in self.target_columns))
             
             y = df[self.target_columns].values if has_targets else None
             
-            # Transform features
             logger.info("Transforming features...")
             X_transformed = self.feature_processor.transform(X)
             
-            # Scale targets if available
             if y is not None:
                 y_scaled = self.scaler.transform(y)
                 return X_transformed, y_scaled

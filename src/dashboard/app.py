@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import List, Tuple, Dict, Any
 
-# Set seaborn style
 sns.set_theme(style="whitegrid")
 import json
 import requests
@@ -39,12 +38,10 @@ def generate_sample_data(n_samples: int = 100) -> Tuple[pd.DataFrame, List[str]]
     """
     np.random.seed(42)
     
-    # Generate timestamps
     end_time = pd.Timestamp.now()
     start_time = end_time - pd.Timedelta(days=1)
     timestamps = pd.date_range(start=start_time, end=end_time, periods=n_samples)
     
-    # Create sample data
     data = {
         'utc_time': timestamps,
         'sat_id': np.random.choice(['G01', 'G02', 'G03'], size=n_samples),
@@ -57,7 +54,6 @@ def generate_sample_data(n_samples: int = 100) -> Tuple[pd.DataFrame, List[str]]
     
     df = pd.DataFrame(data)
     
-    # Get feature columns (all numeric columns except utc_time)
     feature_columns = [col for col in df.select_dtypes(include=['float64', 'int64']).columns 
                       if col != 'utc_time']
     
@@ -86,7 +82,6 @@ def plot_predictions(predictions: Dict[str, float]):
     Args:
         predictions: Dictionary mapping error types to predicted values
     """
-    # Create bar plot
     plt.figure(figsize=(10, 6))
     plt.bar(predictions.keys(), predictions.values())
     plt.xticks(rotation=45)
@@ -176,25 +171,20 @@ def main():
         initial_sidebar_state="expanded"
     )
     
-    # Add custom CSS
     add_custom_css()
     
     st.title("🛰️ GNSS Error Prediction Dashboard")
     st.markdown("---")
     
-    # Generate sample data
     try:
         df, feature_columns = generate_sample_data(n_samples=100)
         st.sidebar.success("Using generated sample data")
         
-        # Display sample data
         st.sidebar.subheader("Sample Data Preview")
         st.sidebar.dataframe(df.head())
         
-        # Sidebar filters
         st.sidebar.header("Filters")
         
-        # Satellite filter
         all_satellites = df['sat_id'].unique().tolist()
         selected_satellites = st.sidebar.multiselect(
             'Select Satellites',
@@ -202,7 +192,6 @@ def main():
             default=all_satellites
         )
         
-        # Time range filter
         min_time = df['utc_time'].min().to_pydatetime()
         max_time = df['utc_time'].max().to_pydatetime()
         
@@ -213,14 +202,12 @@ def main():
             value=(min_time, max_time)
         )
         
-        # Apply filters
         filtered_df = df[
             (df['sat_id'].isin(selected_satellites)) &
             (df['utc_time'] >= time_range[0]) &
             (df['utc_time'] <= time_range[1])
         ]
         
-        # Display statistics
         st.subheader("📊 Data Overview")
         col1, col2, col3, col4 = st.columns(4)
         
@@ -235,17 +222,13 @@ def main():
             avg_eph_error = filtered_df['ephemeris_error'].mean()
             st.markdown(f"<div class='metric-card'><h3>Avg Ephemeris Error</h3><h2>{avg_eph_error:.4f}</h2></div>", unsafe_allow_html=True)
             
-        # Add time range display
         st.caption(f"Showing data from {time_range[0].strftime('%Y-%m-%d %H:%M')} to {time_range[1].strftime('%Y-%m-%d %H:%M')}")
             
-        # Create a copy of the dataframe for charting
         chart_df = filtered_df.copy()
         chart_df['time_str'] = chart_df['utc_time'].dt.strftime('%Y-%m-%d %H:%M')
         
-        # Plot errors over time
         st.subheader("📈 Error Trends Over Time")
         
-        # Create tabs for different visualizations
         tab1, tab2, tab3, tab4 = st.tabs([
             "📊 Error Trends", 
             "📡 Satellite Comparison", 
@@ -254,12 +237,10 @@ def main():
         ])
         
         with tab1:
-            # Plot both errors on the same chart
             st.markdown("### Clock and Ephemeris Errors")
             chart_data = chart_df[['time_str', 'clock_error', 'ephemeris_error']].set_index('time_str')
             st.line_chart(chart_data)
             
-            # Add statistics
             col1, col2 = st.columns(2)
             with col1:
                 st.metric("Max Clock Error", f"{chart_df['clock_error'].max():.4f}")
@@ -269,7 +250,6 @@ def main():
                 st.metric("Min Ephemeris Error", f"{chart_df['ephemeris_error'].min():.4f}")
         
         with tab2:
-            # Satellite comparison
             st.markdown("### Error by Satellite")
             sat_errors = chart_df.groupby('sat_id')[['clock_error', 'ephemeris_error']].mean().reset_index()
             
@@ -282,7 +262,6 @@ def main():
                 st.caption("Average Ephemeris Error by Satellite")
         
         with tab3:
-            # Error distribution
             st.markdown("### Error Distribution")
             
             col1, col2 = st.columns(2)
@@ -293,7 +272,6 @@ def main():
                 st.area_chart(chart_df['ephemeris_error'])
                 st.caption("Ephemeris Error Distribution")
             
-            # Histograms
             st.markdown("#### Error Histograms")
             hist_bins = st.slider("Number of bins", 5, 50, 20)
             
@@ -308,67 +286,52 @@ def main():
             st.pyplot(fig2)
         
         with tab4:
-            # Correlation analysis
             st.markdown("### Feature Correlations")
             
-            # Calculate correlation matrix
             numeric_cols = chart_df.select_dtypes(include=['float64', 'int64']).columns
             corr = chart_df[numeric_cols].corr()
             
-            # Create heatmap
             plt.figure(figsize=(10, 8))
             sns.heatmap(corr, annot=True, fmt=".2f", cmap='coolwarm', center=0)
             plt.title('Feature Correlation Matrix')
             st.pyplot(plt)
             
-            # Top correlations
             st.markdown("#### Strongest Correlations")
             corr_pairs = corr.unstack().sort_values(ascending=False)
-            corr_pairs = corr_pairs[corr_pairs < 1]  # Remove self-correlations
+            corr_pairs = corr_pairs[corr_pairs < 1]
             st.dataframe(corr_pairs.head(10).reset_index().rename(columns={'level_0': 'Feature 1', 'level_1': 'Feature 2', 0: 'Correlation'}))
         
     except Exception as e:
         st.error(f"Error in dashboard: {str(e)}")
         st.warning("Falling back to sample data generation...")
         
-        # Generate sample data as fallback
         try:
             df, feature_columns = generate_sample_data(n_samples=50)
             
-            # Display basic information
             st.subheader("Sample Data Loaded")
             st.write("Using generated sample data as fallback")
             
-            # Display data preview with formatted timestamps
             preview_df = df.copy()
             preview_df['utc_time'] = preview_df['utc_time'].dt.strftime('%Y-%m-%d %H:%M:%S')
             st.dataframe(preview_df.head())
             
-            # Show basic charts with proper timestamp handling
-            # Create a copy of the dataframe to avoid SettingWithCopyWarning
             chart_df = df.copy()
             
-            # Convert datetime to string for display
             chart_df['time_str'] = chart_df['utc_time'].dt.strftime('%H:%M')
             
-            # Plot clock error
             st.subheader("Clock Error Over Time")
             st.line_chart(data=chart_df.set_index('time_str')['clock_error'])
             
-            # Plot ephemeris error
             st.subheader("Ephemeris Error Over Time")
             st.line_chart(data=chart_df.set_index('time_str')['ephemeris_error'])
             
         except Exception as fallback_error:
             st.error(f"Failed to generate sample data: {str(fallback_error)}")
         
-        # Add any additional error handling or user guidance here
         st.info("The dashboard is displaying sample GNSS error data. To customize this dashboard with your own data, please update the 'generate_sample_data' function in app.py.")
     
-    # Add some space at the bottom
     st.write("\n" * 5)
     
-    # Add footer
     st.markdown("---")
     st.markdown("GNSS Error Prediction Dashboard • [GitHub](https://github.com/yourusername/gnss-error-prediction)")
 if __name__ == "__main__":

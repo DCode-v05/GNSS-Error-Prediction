@@ -67,13 +67,10 @@ class DataVisualization:
             st.warning("No error metrics available")
             return
             
-        # Convert to DataFrame for easier plotting
         df = pd.DataFrame(metrics_data)
         
-        # Create subplots
         fig = go.Figure()
         
-        # Add traces for each metric
         metrics = ['mae', 'rmse', 'max_error']
         colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
         
@@ -178,5 +175,4 @@ class DataVisualization:
                     delta_color=delta_type if delta is not None else None
                 )
 
-# Create a global instance for easy import
 data_viz = DataVisualization()

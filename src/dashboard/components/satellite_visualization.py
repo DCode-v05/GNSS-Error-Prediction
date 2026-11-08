@@ -31,10 +31,8 @@ class SatelliteVisualization:
         t = np.linspace(0, 2 * np.pi, 100)
         r = self.earth_radius + altitude
         
-        # Convert inclination to radians
         inc = np.radians(inclination)
         
-        # Parametric equations for orbit
         x = r * np.cos(t + phase)
         y = r * np.sin(t + phase) * np.cos(inc)
         z = r * np.sin(t + phase) * np.sin(inc)
@@ -53,15 +51,12 @@ class SatelliteVisualization:
             
         fig = go.Figure()
         
-        # Add Earth
         x, y, z = self._create_earth()
         fig.add_surface(x=x, y=y, z=z, 
                        colorscale=[[0, 'lightblue'], [1, 'blue']],
                        showscale=False)
         
-        # Add orbits and satellites
         for sat in satellites:
-            # Add orbit
             x_orb, y_orb, z_orb = self._create_orbit(
                 altitude=sat.get('altitude', 0.5),
                 inclination=sat.get('inclination', 45),
@@ -76,7 +71,6 @@ class SatelliteVisualization:
                 showlegend=False
             ))
             
-            # Add satellite
             fig.add_trace(go.Scatter3d(
                 x=[sat.get('x', 0)],
                 y=[sat.get('y', 0)],
@@ -93,7 +87,6 @@ class SatelliteVisualization:
                 showlegend=True
             ))
         
-        # Update layout
         fig.update_layout(
             title='Satellite Orbits',
             scene=dict(
@@ -140,7 +133,6 @@ class SatelliteVisualization:
                 text=f"Satellite: {sat_id}"
             ))
         
-        # Add world map background
         fig.update_geos(
             projection_type="orthographic",
             showocean=True, oceancolor="LightBlue",
@@ -155,7 +147,7 @@ class SatelliteVisualization:
             geo=dict(
                 showframe=False,
                 projection_scale=1.5,
-                center=dict(lat=20, lon=78),  # Centered over India
+                center=dict(lat=20, lon=78),
                 lonaxis=dict(showgrid=True, gridwidth=0.5, dtick=30),
                 lataxis=dict(showgrid=True, gridwidth=0.5, dtick=20)
             ),

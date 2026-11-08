@@ -66,7 +66,6 @@ class AlertsPage:
         """Display the alerts interface."""
         st.title("Alerts & Notifications")
         
-        # Add filters
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -87,7 +86,6 @@ class AlertsPage:
                 ["All", "Ground Control", "Maintenance Team", "Orbit Control", "Power Systems"]
             )
         
-        # Filter alerts
         filtered_alerts = self.alerts
         
         if status_filter != "All":
@@ -102,13 +100,11 @@ class AlertsPage:
             filtered_alerts = [alert for alert in filtered_alerts 
                              if alert['assigned_to'] == assigned_filter]
         
-        # Display alerts
         st.subheader(f"Active Alerts ({len(filtered_alerts)})")
         
         for alert in filtered_alerts:
             self._display_alert_card(alert)
         
-        # Add a button to create a new alert (for admin/operator)
         user_role = st.session_state.get('user', {}).get('role', 'viewer')
         if user_role in ['admin', 'operator']:
             if st.button("Create New Alert"):
@@ -119,17 +115,15 @@ class AlertsPage:
     
     def _display_alert_card(self, alert):
         """Display a single alert as a card."""
-        # Set color based on severity
         if alert['severity'] == 'Critical':
-            border_color = "#ff4444"  # Red
+            border_color = "#ff4444"
         elif alert['severity'] == 'High':
-            border_color = "#ffbb33"  # Orange
+            border_color = "#ffbb33"
         elif alert['severity'] == 'Medium':
-            border_color = "#ffcc00"  # Yellow
+            border_color = "#ffcc00"
         else:
-            border_color = "#4285F4"  # Blue
+            border_color = "#4285F4"
         
-        # Create a card-like container
         st.markdown(
             f"""
             <div style="
@@ -160,7 +154,6 @@ class AlertsPage:
             unsafe_allow_html=True
         )
         
-        # Add action buttons
         col1, col2, col3, _ = st.columns([1, 1, 1, 5])
         
         with col1:
@@ -178,7 +171,6 @@ class AlertsPage:
                 st.session_state['selected_alert'] = alert
                 st.rerun()
         
-        # Show details if this alert is selected
         if st.session_state.get('selected_alert', {}).get('id') == alert['id']:
             self._show_alert_details(alert)
     
@@ -202,10 +194,8 @@ class AlertsPage:
             st.markdown("**Description:**")
             st.info(alert['message'])
             
-            # Add a text area for notes
             notes = st.text_area("Add Notes", key=f"notes_{alert['id']}")
             
-            # Add action buttons
             col1, col2 = st.columns([1, 5])
             
             with col1:
@@ -219,7 +209,6 @@ class AlertsPage:
                     })
                     st.success("Notes saved successfully!")
             
-            # Show notes history if any
             if 'notes' in alert and alert['notes']:
                 st.markdown("**Notes History:**")
                 for note in reversed(alert['notes']):
@@ -289,13 +278,11 @@ class AlertsPage:
                 st.session_state['show_new_alert'] = False
                 st.rerun()
 
-# Create a module-level instance
 alerts_page = AlertsPage()
 
 def display():
     """Display the alerts page."""
     alerts_page.display()
 
-# For testing
 if __name__ == "__main__":
     display()

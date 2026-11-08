@@ -32,12 +32,10 @@ class ModelService:
         try:
             logger.info(f"Loading model from {model_path}")
             
-            # Load model
             self.model = load_model(model_path)
             self.model = self.model.to(self.device)
             self.model.eval()
             
-            # Load processor
             logger.info(f"Loading processor from {processor_path}")
             self.processor = joblib.load(processor_path)
             
@@ -68,21 +66,16 @@ class ModelService:
             raise RuntimeError("Model is not loaded")
         
         try:
-            # Convert input to DataFrame
             import pandas as pd
             df = pd.DataFrame(input_data)
             
-            # Process input
             X_processed, _ = self.processor.transform(df)
             
-            # Convert to tensor
             X_tensor = torch.FloatTensor(X_processed).unsqueeze(0).to(self.device)
             
-            # Make prediction
             with torch.no_grad():
                 outputs = self.model(X_tensor)
                 
-                # Get predictions for the requested horizon
                 horizon = str(prediction_horizon)
                 if horizon not in outputs:
                     raise ValueError(
@@ -94,10 +87,8 @@ class ModelService:
                 mean = pred['mean'].cpu().numpy()[0]
                 std = pred['std'].cpu().numpy()[0]
                 
-                # Inverse transform predictions
                 mean = self.processor.inverse_transform_targets(mean.reshape(1, -1))[0]
                 
-                # Prepare response
                 target_columns = self.processor.target_columns
                 prediction = dict(zip(target_columns, mean))
                 uncertainty = dict(zip(
@@ -123,7 +114,6 @@ class ModelService:
         """Check if the model is ready for predictions."""
         return self.ready
 
-# Global instance of the model service
 model_service = ModelService()
 
 def get_model_service() -> ModelService:

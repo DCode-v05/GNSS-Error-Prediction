@@ -15,7 +15,6 @@ def analyze_target_distribution(data: np.ndarray, save_dir: str = 'results/analy
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     
-    # Calculate basic statistics
     stats_dict = {
         'mean': np.mean(data),
         'median': np.median(data),
@@ -26,22 +25,18 @@ def analyze_target_distribution(data: np.ndarray, save_dir: str = 'results/analy
         'max': np.max(data)
     }
     
-    # Log statistics
     logger.info("\nTarget Variable Statistics:")
     for stat, value in stats_dict.items():
         logger.info(f"{stat}: {value:.6f}")
     
-    # Create distribution plots
     plt.figure(figsize=(15, 10))
     
-    # Original distribution
     plt.subplot(2, 2, 1)
     sns.histplot(data, bins=50, kde=True)
     plt.title('Original Distribution')
     plt.xlabel('Value')
     plt.ylabel('Count')
     
-    # Log transformation
     plt.subplot(2, 2, 2)
     log_data = np.log1p(np.abs(data)) * np.sign(data)
     sns.histplot(log_data, bins=50, kde=True)
@@ -49,13 +44,11 @@ def analyze_target_distribution(data: np.ndarray, save_dir: str = 'results/analy
     plt.xlabel('Log(|x| + 1) * sign(x)')
     plt.ylabel('Count')
     
-    # Box plot
     plt.subplot(2, 2, 3)
     plt.boxplot(data)
     plt.title('Box Plot')
     plt.ylabel('Value')
     
-    # Q-Q plot
     plt.subplot(2, 2, 4)
     stats.probplot(data, dist="norm", plot=plt)
     plt.title('Q-Q Plot')
@@ -64,9 +57,8 @@ def analyze_target_distribution(data: np.ndarray, save_dir: str = 'results/analy
     plt.savefig(save_dir / 'target_distribution.png')
     plt.close()
     
-    # Calculate normality tests
     normality_tests = {
-        'Shapiro-Wilk': stats.shapiro(data[:5000]),  # Limited to 5000 samples
+        'Shapiro-Wilk': stats.shapiro(data[:5000]),
         'D\'Agostino-Pearson': stats.normaltest(data),
         'Kolmogorov-Smirnov': stats.kstest(data, 'norm')
     }
@@ -75,7 +67,6 @@ def analyze_target_distribution(data: np.ndarray, save_dir: str = 'results/analy
     for test, result in normality_tests.items():
         logger.info(f"{test} - statistic: {result[0]:.6f}, p-value: {result[1]:.6f}")
     
-    # Analyze outliers
     q1, q3 = np.percentile(data, [25, 75])
     iqr = q3 - q1
     lower_bound = q1 - 1.5 * iqr
@@ -88,7 +79,6 @@ def analyze_target_distribution(data: np.ndarray, save_dir: str = 'results/analy
     logger.info(f"Percentage of outliers: {outlier_percentage:.2f}%")
     logger.info(f"IQR range: [{lower_bound:.6f}, {upper_bound:.6f}]")
     
-    # Suggest transformations
     logger.info("\nTransformation Suggestions:")
     if abs(stats_dict['skew']) > 1:
         logger.info("- High skewness detected, consider log transformation")
@@ -100,20 +90,16 @@ def analyze_target_distribution(data: np.ndarray, save_dir: str = 'results/analy
     return stats_dict, normality_tests
 
 def main():
-    # Load and process data
     data_processor = GNSSDataProcessor()
     df = data_processor.load_data('data/raw/DATA_GEO_Train.csv')
     
-    # Get error columns
     error_cols = [col for col in df.columns if 'error' in col.lower()]
     
-    # Analyze each error column
     for col in error_cols:
         logger.info(f"\nAnalyzing column: {col}")
         data = df[col].values
         stats_dict, _ = analyze_target_distribution(data, save_dir=f'results/analysis/{col}')
         
-        # Save statistics
         stats_df = pd.DataFrame([stats_dict])
         stats_df.to_csv(f'results/analysis/{col}/statistics.csv', index=False)
 

@@ -8,7 +8,6 @@ import yaml
 from pathlib import Path
 import os
 
-# Path to the users configuration file
 CONFIG_DIR = Path(__file__).parent.parent.parent / "config"
 CONFIG_FILE = CONFIG_DIR / "users.yaml"
 
@@ -42,7 +41,6 @@ class AdminPanel:
         """Display the admin panel."""
         st.title("Admin Panel")
         
-        # Create tabs for different admin sections
         tab1, tab2, tab3, tab4 = st.tabs([
             "User Management", 
             "System Settings", 
@@ -66,7 +64,6 @@ class AdminPanel:
         """Display the user management interface."""
         st.header("User Management")
         
-        # Add new user form
         with st.expander("Add New User", expanded=False):
             with st.form("add_user"):
                 col1, col2 = st.columns(2)
@@ -90,11 +87,10 @@ class AdminPanel:
                     elif username in self.config.get('users', {}):
                         st.error("Username already exists.")
                     else:
-                        # In a real app, you would hash the password here
                         self.config.setdefault('users', {})[username] = {
                             'email': email,
                             'name': full_name,
-                            'password': password,  # In a real app, this should be hashed
+                            'password': password,
                             'role': role,
                             'created_at': str(st.session_state.get('current_time', 'N/A')),
                             'created_by': st.session_state.get('user', {}).get('username', 'system')
@@ -105,7 +101,6 @@ class AdminPanel:
                         else:
                             st.error("Failed to save user.")
         
-        # Display existing users
         st.subheader("Existing Users")
         users = self.config.get('users', {})
         
@@ -113,7 +108,6 @@ class AdminPanel:
             st.info("No users found.")
             return
         
-        # Create a table of users
         user_data = []
         for username, user_info in users.items():
             user_data.append({
@@ -123,10 +117,9 @@ class AdminPanel:
                 'Role': user_info.get('role', 'viewer').capitalize(),
                 'Created At': user_info.get('created_at', 'N/A'),
                 'Created By': user_info.get('created_by', 'N/A'),
-                'Actions': username  # For the edit/delete buttons
+                'Actions': username
             })
         
-        # Display the table
         for user in user_data:
             col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 2, 3, 1, 2, 2, 3])
             
@@ -149,7 +142,6 @@ class AdminPanel:
                 st.write(user['Created By'])
             
             with col7:
-                # Only allow editing non-admin users or if current user is admin
                 current_user = st.session_state.get('user', {})
                 if current_user.get('role') == 'admin' or current_user.get('username') == user['Username']:
                     edit_key = f"edit_{user['Username']}"
@@ -158,7 +150,6 @@ class AdminPanel:
                     if st.button("Edit", key=edit_key):
                         st.session_state['edit_user'] = user['Username']
                     
-                    # Don't allow deleting yourself
                     if current_user.get('username') != user['Username']:
                         if st.button("Delete", key=delete_key):
                             if user['Username'] in self.config.get('users', {}):
@@ -167,7 +158,6 @@ class AdminPanel:
                                     st.success(f"User '{user['Username']}' deleted successfully!")
                                     st.rerun()
             
-            # Show edit form if this user is being edited
             if st.session_state.get('edit_user') == user['Username']:
                 self._show_edit_user_form(user['Username'])
             
@@ -201,7 +191,6 @@ class AdminPanel:
                     if not all([new_email, new_name]):
                         st.error("Please fill in all required fields.")
                     else:
-                        # Update user data
                         self.config['users'][username].update({
                             'email': new_email,
                             'name': new_name,
@@ -210,7 +199,6 @@ class AdminPanel:
                             'updated_by': st.session_state.get('user', {}).get('username', 'system')
                         })
                         
-                        # Update password if provided
                         if new_password:
                             self.config['users'][username]['password'] = new_password
                         
@@ -230,19 +218,17 @@ class AdminPanel:
         """Display system settings."""
         st.header("System Settings")
         
-        # System information
         st.subheader("System Information")
         col1, col2 = st.columns(2)
         
         with col1:
             st.metric("Total Users", len(self.config.get('users', {})))
-            st.metric("Active Sessions", "N/A")  # Would come from a session store in a real app
+            st.metric("Active Sessions", "N/A")
         
         with col2:
-            st.metric("System Uptime", "24d 6h 12m")  # Would be dynamic in a real app
-            st.metric("Database Status", "Connected")  # Would check DB connection
+            st.metric("System Uptime", "24d 6h 12m")
+            st.metric("Database Status", "Connected")
         
-        # System configuration
         st.subheader("Configuration")
         
         with st.form("system_config"):
@@ -255,14 +241,12 @@ class AdminPanel:
             )
             
             if st.form_submit_button("Save Settings"):
-                # In a real app, this would save to a config file or database
                 st.success("System settings updated successfully!")
     
     def _display_audit_logs(self):
         """Display audit logs."""
         st.header("Audit Logs")
         
-        # In a real app, this would query a log database
         sample_logs = [
             {"timestamp": "2023-05-15 10:30:45", "user": "admin", "action": "User login", "ip": "192.168.1.1"},
             {"timestamp": "2023-05-15 09:15:22", "user": "operator1", "action": "Updated satellite data", "ip": "192.168.1.2"},
@@ -271,7 +255,6 @@ class AdminPanel:
             {"timestamp": "2023-05-13 11:05:17", "user": "admin", "action": "System backup completed", "ip": "192.168.1.1"},
         ]
         
-        # Add filters
         col1, col2 = st.columns(2)
         
         with col1:
@@ -283,7 +266,6 @@ class AdminPanel:
         with col2:
             date_filter = st.date_input("Filter by Date")
         
-        # Apply filters
         filtered_logs = sample_logs
         if user_filter != "All Users":
             filtered_logs = [log for log in filtered_logs if log["user"] == user_filter]
@@ -292,15 +274,12 @@ class AdminPanel:
             date_str = date_filter.strftime("%Y-%m-%d")
             filtered_logs = [log for log in filtered_logs if log["timestamp"].startswith(date_str)]
         
-        # Display logs in a table
         if filtered_logs:
             st.table(filtered_logs)
         else:
             st.info("No logs found matching the selected filters.")
         
-        # Add export button
         if st.button("Export Logs"):
-            # In a real app, this would generate a CSV or PDF
             st.success("Logs exported successfully!")
     
     def _display_about(self):
@@ -331,22 +310,17 @@ class AdminPanel:
         © 2023 ISRO - Indian Space Research Organisation
         """)
 
-# Create a module-level instance
 admin_panel = AdminPanel()
 
 def display():
     """Display the admin panel."""
-    # Check if user is admin
     if st.session_state.get('user', {}).get('role') != 'admin':
         st.error("You do not have permission to access this page.")
         return
     
-    # Store current time for audit purposes
     st.session_state['current_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-    # Display the admin panel
     admin_panel.display()
 
-# For testing
 if __name__ == "__main__":
     display()

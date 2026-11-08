@@ -8,16 +8,13 @@ import sys
 import os
 from pathlib import Path
 
-# Add the src directory to the path
 sys.path.append(str(Path(__file__).parent))
 
-# Import authentication and pages
 from src.dashboard.simple_auth import authenticator
 from src.dashboard.pages import (
     dashboard_page, satellites_page, alerts_page, admin_panel
 )
 
-# Set page configuration
 st.set_page_config(
     page_title="ISRO GNSS Dashboard",
     page_icon="🛰️",
@@ -25,7 +22,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
 st.markdown("""
     <style>
     /* Main content */
@@ -91,21 +87,16 @@ st.markdown("""
 
 def main():
     """Main application entry point."""
-    # Initialize session state for page navigation and authentication
     if 'page' not in st.session_state:
         st.session_state.page = 'Dashboard'
     
-    # Check authentication first
     if not st.session_state.get('authenticated', False):
-        # Only show login form if not authenticated
         if not authenticator.login():
-            return  # Stop execution if not authenticated
+            return
         
-        # If we get here, authentication was successful
-        st.rerun()  # Rerun to update the UI
+        st.rerun()
         return
     
-    # Get current user (should be authenticated at this point)
     current_user = authenticator.get_current_user()
     if not current_user:
         st.error("Authentication failed. Please try again.")
@@ -113,21 +104,16 @@ def main():
         st.rerun()
         return
     
-    # Get user role
     user_role = current_user.get('role', 'viewer')
     
-    # Display sidebar
     with st.sidebar:
         st.title("Navigation")
         
-        # Navigation menu
         menu_options = ["Dashboard", "Satellites", "Alerts"]
         
-        # Add admin options
         if user_role == 'admin':
             menu_options.append("Admin")
         
-        # Page selection
         selected_page = st.radio(
             "Go to",
             menu_options,
@@ -135,14 +121,12 @@ def main():
             key="page_selector"
         )
         
-        # Update session state when page changes
         if selected_page != st.session_state.page:
             st.session_state.page = selected_page
             st.rerun()
         
         st.markdown("---")
         
-        # Display user info
         st.markdown(f"""
             <div style='padding: 1rem; background-color: #f0f2f6; border-radius: 8px;'>
                 <p style='margin: 0; font-weight: bold;'>{current_user.get('name', 'User')}</p>
@@ -150,13 +134,11 @@ def main():
             </div>
         """, unsafe_allow_html=True)
         
-        # Logout button
         if st.button("Logout"):
             authenticator.logout()
         
         st.markdown("---")
         
-        # System status
         st.markdown("### System Status")
         st.markdown("""
             - **Last Update:** Just now
@@ -164,7 +146,6 @@ def main():
             - **Version:** 1.0.0
         """)
     
-    # Display the selected page
     if st.session_state.page == "Dashboard":
         dashboard_page.display()
     elif st.session_state.page == "Satellites":

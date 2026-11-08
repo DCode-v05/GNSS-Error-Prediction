@@ -2,10 +2,8 @@
 from pathlib import Path
 import os
 
-# Base directory
 BASE_DIR = Path(__file__).parent.parent.parent
 
-# API Configuration
 class APIConfig:
     BASE_URL = os.getenv("API_URL", "http://localhost:8000")
     TIMEOUT = 30
@@ -17,7 +15,6 @@ class APIConfig:
         "alerts": "/api/v1/alerts"
     }
 
-# Dashboard Configuration
 class DashboardConfig:
     TITLE = "ISRO GNSS Monitoring Dashboard"
     DESCRIPTION = """
@@ -25,15 +22,14 @@ class DashboardConfig:
     Developed for ISRO's satellite operations team.
     """
     THEME = {
-        "primaryColor": "#1E3D8F",  # ISRO Blue
+        "primaryColor": "#1E3D8F",
         "backgroundColor": "#F5F8FF",
         "secondaryBackgroundColor": "#E8F0FE",
         "textColor": "#1E3D8F",
         "font": "sans serif"
     }
-    REFRESH_INTERVAL = 300000  # 5 minutes in milliseconds
+    REFRESH_INTERVAL = 300000
 
-# Satellite Configuration
 class SatelliteConfig:
     CONSTELLATIONS = {
         "NAVIC": {"prefix": "IRNSS", "color": "#FF6B6B"},
@@ -44,7 +40,6 @@ class SatelliteConfig:
     }
     DEFAULT_SATELLITES = ["IRNSS-1A", "IRNSS-1B", "IRNSS-1C", "IRNSS-1D", "G01", "G02", "R01", "R02"]
 
-# Alert Configuration
 class AlertConfig:
     SEVERITY_LEVELS = {
         "CRITICAL": {"color": "#FF0000", "icon": "🚨"},
@@ -52,4 +47,4 @@ class AlertConfig:
         "MEDIUM": {"color": "#FFD166", "icon": "ℹ️"},
         "LOW": {"color": "#06D6A0", "icon": "ℹ️"}
     }
-    DEFAULT_ALERT_WINDOW = 24  # hours
+    DEFAULT_ALERT_WINDOW = 24

@@ -33,11 +33,9 @@ def load_gnss_data(data_dir: Union[str, Path],
     data = {}
     for file_path in data_files:
         try:
-            # Extract satellite ID from filename (e.g., "G01" from "G01_Train.csv")
             sat_id = file_path.stem.split('_')[0]
             df = pd.read_csv(file_path)
             
-            # Convert timestamp to datetime if present
             if 'utc_time' in df.columns:
                 df['utc_time'] = pd.to_datetime(df['utc_time'])
                 df = df.sort_values('utc_time')
@@ -65,21 +63,16 @@ def preprocess_gnss_data(df: pd.DataFrame,
     Returns:
         Preprocessed DataFrame
     """
-    # Make a copy to avoid modifying the original
     df = df.copy()
     
-    # Drop specified columns
     if drop_columns:
         df = df.drop(columns=[col for col in drop_columns if col in df.columns])
     
-    # Handle missing values
     for col in df.columns:
         if df[col].isnull().any():
             if col in target_columns:
-                # For target columns, use forward fill then backward fill
                 df[col] = df[col].fillna(method='ffill').fillna(method='bfill')
             else:
-                # For feature columns, use median for numeric, mode for categorical
                 if pd.api.types.is_numeric_dtype(df[col]):
                     df[col] = df[col].fillna(df[col].median())
                 else:
@@ -132,12 +125,10 @@ def split_train_test(data: Dict[str, pd.DataFrame],
     
     for sat_id, df in data.items():
         if time_based and 'utc_time' in df.columns:
-            # Time-based split
             split_idx = int(len(df) * (1 - test_size))
             train_data[sat_id] = df.iloc[:split_idx].copy()
             test_data[sat_id] = df.iloc[split_idx:].copy()
         else:
-            # Random split
             mask = np.random.rand(len(df)) < (1 - test_size)
             train_data[sat_id] = df[mask].copy()
             test_data[sat_id] = df[~mask].copy()

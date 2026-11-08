@@ -54,7 +54,6 @@ async def predict(
                 detail="Model is not ready"
             )
         
-        # Validate sequence length
         sequence_length = len(request.sequence)
         if sequence_length < 1:
             raise HTTPException(
@@ -62,7 +61,6 @@ async def predict(
                 detail="Sequence must contain at least one item"
             )
         
-        # Ensure all items have the same keys
         first_item_keys = set(request.sequence[0].keys())
         for i, item in enumerate(request.sequence[1:], 1):
             if set(item.keys()) != first_item_keys:
@@ -73,7 +71,6 @@ async def predict(
                           f"but item {i} has keys: {sorted(item.keys())}"
                 )
         
-        # Make prediction
         result = await model_service.predict(
             request.sequence,
             request.prediction_horizon

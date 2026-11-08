@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
-# Import components
 from src.dashboard.components.header import Header
 from src.dashboard.components.satellite_visualization import SatelliteVisualization
 from src.dashboard.components.data_visualization import data_viz
@@ -14,7 +13,6 @@ class DashboardPage:
         self.header = Header()
         self.sat_viz = SatelliteVisualization()
         
-        # Initialize session state if not already done
         self._init_session_state()
         
     def _init_session_state(self):
@@ -22,37 +20,32 @@ class DashboardPage:
         if 'last_refresh' not in st.session_state:
             st.session_state.last_refresh = datetime.now()
             
-        # Initialize alerts if not exists
         if 'alerts' not in st.session_state:
             st.session_state.alerts = []
             
-        # Initialize satellite data if not exists
         if 'satellites' not in st.session_state:
             st.session_state.satellites = []
             
-        # Initialize user preferences if not exists
         if 'user_prefs' not in st.session_state:
             st.session_state.user_prefs = {
                 'auto_refresh': True,
-                'refresh_interval': 300,  # 5 minutes in seconds
+                'refresh_interval': 300,
                 'theme': 'light',
                 'notifications': True
             }
         
     def _generate_sample_data(self):
         """Generate comprehensive satellite data for the dashboard."""
-        # Current timestamp for last contact
         now = datetime.now()
         
-        # Generate sample satellite data for IRNSS constellation
         satellites = [
             {
                 'id': 'IRNSS-1A',
                 'x': np.cos(0) * 1.8,
                 'y': np.sin(0) * 1.8,
                 'z': 0.5,
-                'altitude': 35786,  # km
-                'inclination': 29,  # degrees
+                'altitude': 35786,
+                'inclination': 29,
                 'phase': 0,
                 'status': 'Operational',
                 'status_color': 'green',
@@ -61,7 +54,7 @@ class DashboardPage:
                 'signal_strength': 'Strong',
                 'uplink': 'Normal',
                 'downlink': 'Normal',
-                'temperature': 32,  # °C
+                'temperature': 32,
                 'last_maintenance': '2023-11-15',
                 'next_maintenance': '2024-05-15'
             },
@@ -181,7 +174,6 @@ class DashboardPage:
             }
         ]
         
-        # Generate sample time series data
         timestamps = [now - timedelta(minutes=30-i) for i in range(30)]
         time_series_data = pd.DataFrame({
             'timestamp': timestamps,
@@ -194,7 +186,6 @@ class DashboardPage:
             'IRNSS-1G': np.sin(np.linspace(0, 10, 30) + 3) * 0.5 + np.random.normal(0, 0.05, 30)
         })
         
-        # Generate sample error metrics
         error_metrics = {
             'IRNSS-1A': {'mae': 0.12, 'rmse': 0.15, 'max_error': 0.25},
             'IRNSS-1B': {'mae': 0.18, 'rmse': 0.22, 'max_error': 0.35},
@@ -205,7 +196,6 @@ class DashboardPage:
             'IRNSS-1G': {'mae': 0.11, 'rmse': 0.14, 'max_error': 0.22}
         }
         
-        # Count active alerts (satellites with issues)
         active_alerts = sum(1 for sat in satellites if sat['status'] != 'Operational')
         
         return {
@@ -222,25 +212,19 @@ class DashboardPage:
     
     def display(self):
         """Display the main dashboard."""
-        # Display header
         self.header.display()
         
-        # Get data (in a real app, this would come from an API)
         data = self._generate_sample_data()
         
-        # Display status bar
         self.header.display_status_bar(data.get('status', {}))
         
-        # Main content area
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            # Satellite visualization
             with st.container():
                 st.subheader("Satellite Orbits")
                 self.sat_viz.plot_satellite_positions(data.get('satellites', []))
             
-            # Time series data
             with st.container():
                 st.subheader("Position Errors Over Time")
                 if 'time_series' in data and not data['time_series'].empty:
@@ -254,7 +238,6 @@ class DashboardPage:
                     st.warning("No time series data available")
         
         with col2:
-            # Metrics
             with st.container():
                 st.subheader("System Metrics")
                 metrics = [
@@ -265,7 +248,6 @@ class DashboardPage:
                 ]
                 data_viz.display_metrics_grid(metrics, columns=2)
             
-            # Error metrics
             with st.container():
                 st.subheader("Prediction Errors")
                 if 'error_metrics' in data and data['error_metrics']:
@@ -273,14 +255,11 @@ class DashboardPage:
                 else:
                     st.warning("No error metrics available")
             
-            # Alerts
             with st.container():
                 st.subheader("Recent Alerts")
                 
-                # Get current time for relative timestamps
                 now = datetime.now()
                 
-                # Define alert types and their properties
                 alert_types = {
                     'warning': {'icon': '⚠️', 'color': 'orange'},
                     'error': {'icon': '❌', 'color': 'red'},
@@ -289,7 +268,6 @@ class DashboardPage:
                     'critical': {'icon': '🚨', 'color': 'darkred'}
                 }
                 
-                # Sample alerts with more details
                 alerts = [
                     {
                         "time": now - timedelta(minutes=2),
@@ -356,15 +334,12 @@ class DashboardPage:
                     }
                 ]
                 
-                # Sort alerts by time (newest first)
                 alerts.sort(key=lambda x: x['time'], reverse=True)
                 
-                # Display alerts
-                for alert in alerts[:10]:  # Show only the 10 most recent alerts
+                for alert in alerts[:10]:
                     alert_type = alert.get('level', 'info')
                     alert_config = alert_types.get(alert_type, alert_types['info'])
                     
-                    # Format time as relative (e.g., "2 minutes ago")
                     time_diff = now - alert['time']
                     if time_diff < timedelta(minutes=1):
                         time_str = "Just now"
@@ -378,7 +353,6 @@ class DashboardPage:
                         days = time_diff.days
                         time_str = f"{days} day{'s' if days > 1 else ''} ago"
                     
-                    # Create expander for each alert
                     with st.expander(
                         f"{alert_config['icon']} {alert.get('message', 'Alert')} - {time_str}",
                         expanded=alert_type in ['error', 'critical']
@@ -395,27 +369,22 @@ class DashboardPage:
                             if alert.get('action_required') and alert['action_required'].lower() != 'none':
                                 st.markdown(f"**Action Required:** :red[{alert['action_required']}]")
                         
-                        # Add a dismiss button for non-critical alerts
                         if alert_type not in ['error', 'critical']:
                             if st.button("Dismiss", key=f"dismiss_{alert['time'].timestamp()}"):
                                 alerts.remove(alert)
                                 st.rerun()
         
-        # Add a refresh button
         if st.button("🔄 Refresh Data"):
             st.session_state.last_refresh = datetime.now()
             st.rerun()
             
-        # Auto-refresh every 5 minutes
         current_time = datetime.now()
         last_refresh = st.session_state.get('last_refresh', current_time)
         
-        if (current_time - last_refresh).total_seconds() > 300:  # 5 minutes
+        if (current_time - last_refresh).total_seconds() > 300:
             st.session_state.last_refresh = current_time
             st.rerun()
 
-# Create a module-level instance
 dashboard_page = DashboardPage()
 
-# Explicitly define what gets imported with 'from module import *'
 __all__ = ['dashboard_page', 'DashboardPage']

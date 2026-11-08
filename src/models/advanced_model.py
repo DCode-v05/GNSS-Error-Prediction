@@ -31,15 +31,12 @@ class MultiHorizonTransformer(nn.Module):
         num_layers = config['num_layers']
         dropout = config.get('dropout', 0.1)
         output_size = config['output_size']
-        self.prediction_horizons = config.get('prediction_horizons', [15, 30, 60, 120, 1440])  # in minutes
+        self.prediction_horizons = config.get('prediction_horizons', [15, 30, 60, 120, 1440])
         
-        # Input projection
         self.input_proj = nn.Linear(input_size, d_model)
         
-        # Positional encoding
         self.pos_encoder = PositionalEncoding(d_model, dropout)
         
-        # Transformer layers
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=d_model,
             nhead=nhead,
@@ -49,20 +46,17 @@ class MultiHorizonTransformer(nn.Module):
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers)
         
-        # Multi-horizon prediction heads
         self.prediction_heads = nn.ModuleDict()
         for horizon in self.prediction_horizons:
             self.prediction_heads[str(horizon)] = nn.Sequential(
                 nn.Linear(d_model, d_model // 2),
                 nn.ReLU(),
                 nn.Dropout(dropout),
-                nn.Linear(d_model // 2, output_size * 2)  # Predict mean and log variance
+                nn.Linear(d_model // 2, output_size * 2)
             )
         
-        # Horizon embedding
         self.horizon_embedding = nn.Embedding(len(self.prediction_horizons), d_model)
         
-        # Initialize weights
         self._init_weights()
     
     def _init_weights(self):
@@ -71,37 +65,29 @@ class MultiHorizonTransformer(nn.Module):
                 nn.init.xavier_uniform_(p)
     
     def forward(self, x: torch.Tensor) -> Dict[str, Dict[str, torch.Tensor]]:
-        # x shape: [batch_size, seq_len, input_size]
         batch_size = x.size(0)
         
-        # Project input
         x = self.input_proj(x)
         x = self.pos_encoder(x)
         
-        # Process through transformer
         transformer_out = self.transformer(x)
         
-        # Get the last time step's output
         last_output = transformer_out[:, -1, :]
         
-        # Generate predictions for each horizon
         predictions = {}
         for i, (horizon, head) in enumerate(self.prediction_heads.items()):
-            # Get horizon embedding
             horizon_idx = torch.tensor([i] * batch_size, device=x.device)
             horizon_emb = self.horizon_embedding(horizon_idx)
             
-            # Combine with transformer output
             combined = last_output + horizon_emb
             
-            # Get prediction (mean and log variance)
             pred = head(combined)
             mean = pred[..., :pred.size(-1)//2]
             log_var = pred[..., pred.size(-1)//2:]
             
             predictions[horizon] = {
                 'mean': mean,
-                'std': torch.exp(0.5 * log_var)  # Convert log variance to std
+                'std': torch.exp(0.5 * log_var)
             }
         
         return predictions
@@ -119,10 +105,8 @@ class GaussianNLLLoss(nn.Module):
         Returns:
             Loss value
         """
-        # Ensure numerical stability
         pred_std = pred_std.clamp(min=1e-9)
         
-        # Calculate loss
         loss = 0.5 * (torch.log(pred_std**2) + ((target - pred_mean) / pred_std)**2).mean()
         return loss
 

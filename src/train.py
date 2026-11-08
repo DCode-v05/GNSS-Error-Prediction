@@ -15,7 +15,6 @@ from src.models.model import EnsembleModel
 from src.data.data_processor import GNSSDataProcessor
 from src.evaluation.metrics import calculate_metrics, evaluate_predictions
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -30,10 +29,8 @@ class WarmupCosineScheduler:
     
     def step(self, epoch):
         if epoch < self.warmup_epochs:
-            # Linear warmup
             lr = self.base_lr * (epoch + 1) / self.warmup_epochs
         else:
-            # Cosine annealing
             progress = (epoch - self.warmup_epochs) / (self.total_epochs - self.warmup_epochs)
             lr = self.min_lr + 0.5 * (self.base_lr - self.min_lr) * (1 + math.cos(math.pi * progress))
         
@@ -52,24 +49,19 @@ def select_features(X: np.ndarray, y: np.ndarray, k: int = 24) -> np.ndarray:
     Returns:
         Selected feature indices
     """
-    # Take the last timestep from each sequence for feature selection
-    X_last = X[:, -1, :]  # shape: (n_samples, n_features)
+    X_last = X[:, -1, :]
     
-    # Ensure y is 2D if it's 1D
     y_2d = y.reshape(-1, 1) if len(y.shape) == 1 else y
     
-    # Select features for each target variable
     selected_features = set()
     for i in range(y_2d.shape[1]):
         selector = SelectKBest(score_func=f_regression, k=k)
         selector.fit(X_last, y_2d[:, i])
         selected_features.update(np.where(selector.get_support())[0])
     
-    # Convert to sorted list
     selected_features = sorted(list(selected_features))
     logger.info(f"Selected {len(selected_features)} features")
     
-    # Return selected features indices
     return np.array(selected_features)
 
 def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader,
@@ -79,7 +71,6 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
                 warmup_epochs: int = 5, min_lr: float = 1e-6) -> dict:
     """Train model with early stopping, gradient clipping, and comprehensive metrics."""
     
-    # Initialize tracking variables
     best_val_loss = float('inf')
     patience_counter = 0
     history = {
@@ -87,7 +78,6 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
         'train_metrics': [], 'val_metrics': []
     }
     
-    # Initialize warmup cosine scheduler
     scheduler = WarmupCosineScheduler(
         optimizer=optimizer,
         warmup_epochs=warmup_epochs,
@@ -96,7 +86,6 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
     )
     
     for epoch in range(max_epochs):
-        # Training phase
         model.train()
         total_train_loss = 0
         batch_count = 0
@@ -117,7 +106,6 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
             total_train_loss += loss.item()
             batch_count += 1
             
-            # Store predictions and targets for metrics calculation
             all_train_outputs.append(output.detach())
             all_train_targets.append(target.detach())
             
@@ -127,12 +115,10 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
         
         avg_train_loss = total_train_loss / batch_count
         
-        # Calculate training metrics
         train_outputs = torch.cat(all_train_outputs).cpu()
         train_targets = torch.cat(all_train_targets).cpu()
         train_metrics = calculate_metrics(train_targets, train_outputs)
         
-        # Validation phase
         model.eval()
         with torch.no_grad():
             all_val_outputs = []
@@ -146,18 +132,15 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
                 all_val_outputs.append(output)
                 all_val_targets.append(target)
             
-            # Calculate validation metrics
             val_outputs = torch.cat(all_val_outputs).cpu()
             val_targets = torch.cat(all_val_targets).cpu()
             val_metrics = calculate_metrics(val_targets, val_outputs)
             avg_val_loss = total_val_loss / len(val_loader)
         
-        # Update learning rate with warmup cosine scheduler
         current_lr = scheduler.step(epoch)
         for param_group in optimizer.param_groups:
             param_group['lr'] = current_lr
         
-        # Log progress with comprehensive metrics
         logger.info(
             f"Epoch {epoch}:\n"
             f"Train - Loss: {avg_train_loss:.6f}, MAE: {train_metrics['mae']:.6f}, "
@@ -167,18 +150,15 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
             f"LR: {current_lr:.6f}"
         )
         
-        # Update history
         history['train_loss'].append(avg_train_loss)
         history['val_loss'].append(avg_val_loss)
         history['lr'].append(current_lr)
         history['train_metrics'].append(train_metrics)
         history['val_metrics'].append(val_metrics)
         
-        # Early stopping check
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             patience_counter = 0
-            # Save best model state
             best_model_state = {
                 'state_dict': model.state_dict(),
                 'metrics': val_metrics,
@@ -190,15 +170,13 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
                 logger.info(f"Early stopping triggered at epoch {epoch}")
                 break
     
-    # Add best model state to history
     history['best_model_state'] = best_model_state
     return history
 
 def main():
     print("Main function started.")
-    # Configuration
     config = {
-        'data_path': 'data/raw/DATA_GEO_Train.csv',  # Updated data path
+        'data_path': 'data/raw/DATA_GEO_Train.csv',
         'sequence_length': 24,
         'batch_size': 32,
         'lstm_hidden_size': 8,
@@ -212,14 +190,12 @@ def main():
         'max_epochs': 50,
         'patience': 10,
         'max_grad_norm': 0.5,
-        'n_splits': 5,  # Number of folds for cross-validation
+        'n_splits': 5,
         'device': 'cuda' if torch.cuda.is_available() else 'cpu'
     }
     
-    # Initialize data processor
     data_processor = GNSSDataProcessor()
     
-    # Load and preprocess data
     data_dict = data_processor.prepare_data(
         data_path=config['data_path'],
         sequence_length=config['sequence_length']
@@ -231,37 +207,23 @@ def main():
     
     print("Data processor initialized and data prepared.")
     
-    # # Combine training and validation data for k-fold
-    # X = np.concatenate([data_dict['X_train'], data_dict['X_val']], axis=0)
-    # y = np.concatenate([data_dict['y_train'], data_dict['y_val']], axis=0)
-    
-    # # Select features
-    # selected_features = select_features(X, y)
-    # X = X[:, :, selected_features]
-    
-    # Combine training and validation data for k-fold
     X = np.concatenate([data_dict['X_train'], data_dict['X_val']], axis=0)
     y = np.concatenate([data_dict['y_train'], data_dict['y_val']], axis=0)
     
-    # Select features
     selected_features = select_features(X, y)
     X = X[:, :, selected_features]
     
     print("Configuration, data processor, data loading, preprocessing, and feature selection initialized.")
     
-    # Initialize k-fold cross-validation
     kfold = KFold(n_splits=config['n_splits'], shuffle=True, random_state=42)
     fold_histories = []
     
-    # Cross-validation loop
     for fold, (train_idx, val_idx) in enumerate(kfold.split(X)):
         logger.info(f"\nTraining fold {fold + 1}/{config['n_splits']}")
         
-        # Split data
         X_train, X_val = X[train_idx], X[val_idx]
         y_train, y_val = y[train_idx], y[val_idx]
         
-        # Create dataloaders
         train_dataset = TensorDataset(
             torch.FloatTensor(X_train),
             torch.FloatTensor(y_train)
@@ -281,8 +243,7 @@ def main():
             batch_size=config['batch_size']
         )
         
-        # Initialize model
-        input_size = X_train.shape[2]  # Number of features after selection
+        input_size = X_train.shape[2]
         model = EnsembleModel(
             input_size=input_size,
             lstm_hidden_size=config['lstm_hidden_size'],
@@ -293,7 +254,6 @@ def main():
             dropout=config['dropout']
         ).to(config['device'])
         
-        # Initialize optimizer and criterion
         optimizer = optim.AdamW(
             model.parameters(),
             lr=config['learning_rate'],
@@ -301,7 +261,6 @@ def main():
         )
         criterion = nn.MSELoss()
         
-        # Train the model
         history = train_model(
             model=model,
             train_loader=train_loader,
@@ -312,19 +271,16 @@ def main():
             max_epochs=config['max_epochs'],
             patience=config['patience'],
             max_grad_norm=config['max_grad_norm'],
-            warmup_epochs=max(3, config['max_epochs'] // 10),  # 10% of total epochs or at least 3
+            warmup_epochs=max(3, config['max_epochs'] // 10),
             min_lr=1e-6
         )
         
-        # Save fold-specific model and metrics
         fold_save_path = f'models/fold_{fold + 1}'
         os.makedirs(fold_save_path, exist_ok=True)
         
-        # Save best model state
         torch.save(history['best_model_state']['state_dict'],
                   os.path.join(fold_save_path, 'best_model.pt'))
         
-        # Save metrics
         metrics_save_path = os.path.join(fold_save_path, 'metrics.json')
         metrics_data = {
             'best_epoch': history['best_model_state']['epoch'],
@@ -345,7 +301,6 @@ def main():
         
         fold_histories.append(history)
         
-        # Log fold results with comprehensive metrics
         final_metrics = metrics_data['final_metrics']
         logger.info(f"\nFold {fold + 1} Results:")
         logger.info("Training Metrics:")
@@ -362,25 +317,21 @@ def main():
         logger.info(f"Final Val Loss: {final_val_loss:.6f}")
         logger.info(f"Best Val Loss: {best_val_loss:.6f}")
     
-    # Calculate average metrics across folds
     avg_metrics = {
         'train': {},
         'val': {}
     }
     
-    # Initialize metric dictionaries
     for metric in fold_histories[0]['train_metrics'][-1].keys():
         avg_metrics['train'][metric] = np.mean([h['train_metrics'][-1][metric] for h in fold_histories])
     for metric in fold_histories[0]['val_metrics'][-1].keys():
         avg_metrics['val'][metric] = np.mean([h['val_metrics'][-1][metric] for h in fold_histories])
     
-    # Calculate best validation metrics
     best_val_metrics = {
         metric: np.mean([h['best_model_state']['metrics'][metric] for h in fold_histories])
         for metric in fold_histories[0]['best_model_state']['metrics'].keys()
     }
     
-    # Save cross-validation results
     cv_results = {
         'avg_metrics': avg_metrics,
         'best_val_metrics': best_val_metrics,
@@ -398,7 +349,6 @@ def main():
         ]
     }
     
-    # Save results
     results_dir = Path('results')
     results_dir.mkdir(exist_ok=True)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

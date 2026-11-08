@@ -30,7 +30,6 @@ class SatellitesPage:
                 'battery': '92%',
                 'signal_strength': 'Strong'
             },
-            # Add more sample satellites
             {
                 'id': 'IRNSS-1B',
                 'name': 'IRNSS-1B',
@@ -61,7 +60,6 @@ class SatellitesPage:
         """Display the satellite management interface."""
         st.title("Satellite Management")
         
-        # Add a search and filter section
         col1, col2 = st.columns([2, 1])
         
         with col1:
@@ -73,7 +71,6 @@ class SatellitesPage:
                 ["All", "Active", "Inactive", "Maintenance"]
             )
         
-        # Filter satellites based on search and filter
         filtered_sats = self.satellites
         if search_term:
             filtered_sats = [sat for sat in filtered_sats 
@@ -84,7 +81,6 @@ class SatellitesPage:
             filtered_sats = [sat for sat in filtered_sats 
                            if sat['status'] == status_filter]
         
-        # Display satellite cards
         st.subheader("Satellite Fleet")
         
         for sat in filtered_sats:
@@ -101,7 +97,6 @@ class SatellitesPage:
                     st.markdown(f"**Battery:** {sat['battery']}")
                     st.markdown(f"**Last Contact:** {sat['last_contact']}")
                 
-                # Add action buttons
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     if st.button(f"Refresh {sat['id']}", key=f"refresh_{sat['id']}"):
@@ -115,7 +110,6 @@ class SatellitesPage:
                     if st.button(f"Command {sat['id']}", key=f"command_{sat['id']}"):
                         st.info(f"Opening command interface for {sat['name']}...")
         
-        # Add a button to add a new satellite (admin only)
         if st.session_state.get('user', {}).get('role') == 'admin':
             if st.button("Add New Satellite"):
                 st.session_state['show_add_satellite'] = True
@@ -164,13 +158,11 @@ class SatellitesPage:
                 st.session_state['show_add_satellite'] = False
                 st.rerun()
 
-# Create a module-level instance
 satellites_page = SatellitesPage()
 
 def display():
     """Display the satellites page."""
     satellites_page.display()
 
-# For testing
 if __name__ == "__main__":
     display()

@@ -5,8 +5,8 @@ import pytz
 
 class Header:
     def __init__(self):
-        self.timezone = pytz.timezone('Asia/Kolkata')  # IST timezone
-        self.refresh_rate = 60  # seconds
+        self.timezone = pytz.timezone('Asia/Kolkata')
+        self.refresh_rate = 60
         
     def display(self):
         """Display the dashboard header."""
@@ -22,7 +22,6 @@ class Header:
             st.caption(f"Last Updated: {current_time}")
             
         with col3:
-            # Display user info and status
             if 'name' in st.session_state:
                 st.markdown(f"""
                     <div style='text-align: right;'>

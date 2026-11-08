@@ -26,17 +26,14 @@ class Trainer:
         self.config = config
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
-        # Initialize model
         self.model = MultiHorizonTransformer(config['model']).to(self.device)
         
-        # Initialize optimizer and loss function
         self.optimizer = optim.AdamW(
             self.model.parameters(),
             lr=config['training']['learning_rate'],
             weight_decay=config['training'].get('weight_decay', 1e-5)
         )
         
-        # Learning rate scheduler
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer,
             mode='min',
@@ -50,14 +47,12 @@ class Trainer:
         self.patience = config['training'].get('patience', 10)
         self.early_stop_counter = 0
         
-        # Training history
         self.history = {
             'train_loss': [],
             'val_loss': [],
             'lr': []
         }
         
-        # Create save directory
         self.save_dir = Path(config['training'].get('save_dir', 'models/saved'))
         self.save_dir.mkdir(parents=True, exist_ok=True)
     
@@ -77,7 +72,7 @@ class Trainer:
         
         for i in range(len(X) - seq_length):
             Xs.append(X[i:(i + seq_length)])
-            ys.append(y[i + seq_length - 1])  # Predict next step
+            ys.append(y[i + seq_length - 1])
             
         return np.array(Xs), np.array(ys)
     
@@ -95,16 +90,13 @@ class Trainer:
         Returns:
             Tuple of (train_loader, val_loader)
         """
-        # Create sequences
         seq_length = self.config['data']['sequence_length']
         X_seq, y_seq = self.create_sequences(X, y, seq_length)
         
-        # Split into train and validation
         split_idx = int(len(X_seq) * (1 - val_split))
         X_train, X_val = X_seq[:split_idx], X_seq[split_idx:]
         y_train, y_val = y_seq[:split_idx], y_seq[split_idx:]
         
-        # Create datasets
         train_dataset = TensorDataset(
             torch.FloatTensor(X_train),
             torch.FloatTensor(y_train)
@@ -115,7 +107,6 @@ class Trainer:
             torch.FloatTensor(y_val)
         )
         
-        # Create data loaders
         train_loader = DataLoader(
             train_dataset,
             batch_size=batch_size,
@@ -153,21 +144,18 @@ class Trainer:
             
             self.optimizer.zero_grad()
             
-            # Forward pass
             outputs = self.model(batch_X)
             
-            # Calculate loss for each horizon
             loss = 0.0
             for horizon, pred in outputs.items():
-                horizon_min = int(horizon) // 15  # Convert minutes to 15-min intervals
-                target = batch_y[:, horizon_min-1:horizon_min]  # Select appropriate target
+                horizon_min = int(horizon) // 15
+                target = batch_y[:, horizon_min-1:horizon_min]
                 loss += self.criterion(
                     pred['mean'], 
                     target,
                     pred['std']
                 )
             
-            # Backward pass
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
@@ -196,7 +184,6 @@ class Trainer:
                 
                 outputs = self.model(batch_X)
                 
-                # Calculate loss for each horizon
                 for horizon, pred in outputs.items():
                     horizon_min = int(horizon) // 15
                     target = batch_y[:, horizon_min-1:horizon_min]
@@ -220,32 +207,25 @@ class Trainer:
         Returns:
             Training history
         """
-        # Prepare data loaders
         train_loader, val_loader = self.prepare_data(
             X, y,
             batch_size=self.config['training']['batch_size'],
             val_split=0.2
         )
         
-        # Training loop
         for epoch in range(self.config['training']['epochs']):
             start_time = time.time()
             
-            # Train for one epoch
             train_loss = self.train_epoch(train_loader)
             
-            # Validate
             val_loss = self.validate(val_loader)
             
-            # Update learning rate
             self.scheduler.step(val_loss)
             
-            # Update history
             self.history['train_loss'].append(train_loss)
             self.history['val_loss'].append(val_loss)
             self.history['lr'].append(self.optimizer.param_groups[0]['lr'])
             
-            # Save best model
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
                 self.early_stop_counter = 0
@@ -253,7 +233,6 @@ class Trainer:
             else:
                 self.early_stop_counter += 1
             
-            # Log progress
             logger.info(
                 f"Epoch {epoch + 1}/{self.config['training']['epochs']} - "
                 f"Train Loss: {train_loss:.6f} - "
@@ -262,15 +241,12 @@ class Trainer:
                 f"Time: {time.time() - start_time:.2f}s"
             )
             
-            # Early stopping
             if self.early_stop_counter >= self.patience:
                 logger.info(f"Early stopping at epoch {epoch + 1}")
                 break
         
-        # Save final model
         self.save_checkpoint(f'model_final.pt')
         
-        # Save training history
         self.save_history()
         
         return self.history
@@ -296,19 +272,16 @@ class Trainer:
     
     def save_history(self) -> None:
         """Save training history to disk."""
-        # Save history as JSON
         history_path = self.save_dir / 'training_history.json'
         with open(history_path, 'w') as f:
             json.dump(self.history, f)
         
-        # Plot training curves
         self.plot_training_curves()
     
     def plot_training_curves(self) -> None:
         """Plot training and validation loss curves."""
         plt.figure(figsize=(12, 5))
         
-        # Plot losses
         plt.subplot(1, 2, 1)
         plt.plot(self.history['train_loss'], label='Train Loss')
         plt.plot(self.history['val_loss'], label='Validation Loss')
@@ -317,7 +290,6 @@ class Trainer:
         plt.title('Training and Validation Loss')
         plt.legend()
         
-        # Plot learning rate
         plt.subplot(1, 2, 2)
         plt.plot(self.history['lr'], label='Learning Rate')
         plt.xlabel('Epoch')
@@ -326,7 +298,6 @@ class Trainer:
         plt.title('Learning Rate Schedule')
         plt.legend()
         
-        # Save figure
         plt.tight_layout()
         plot_path = self.save_dir / 'training_curves.png'
         plt.savefig(plot_path)

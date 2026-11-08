@@ -18,7 +18,6 @@ def calculate_metrics(y_true: torch.Tensor, y_pred: torch.Tensor,
     Returns:
         Dictionary containing various metrics
     """
-    # Convert to numpy if needed
     if isinstance(y_true, torch.Tensor):
         y_true = y_true.detach().cpu().numpy()
     if isinstance(y_pred, torch.Tensor):
@@ -26,17 +25,12 @@ def calculate_metrics(y_true: torch.Tensor, y_pred: torch.Tensor,
     if isinstance(y_std, torch.Tensor) and y_std is not None:
         y_std = y_std.detach().cpu().numpy()
     
-    # Basic metrics
     mae = np.mean(np.abs(y_true - y_pred))
     mse = np.mean((y_true - y_pred) ** 2)
     rmse = np.sqrt(mse)
     
-    # Symmetric Mean Absolute Percentage Error (sMAPE)
-    # More robust to zero and near-zero values
     smape = np.mean(2.0 * np.abs(y_true - y_pred) / (np.abs(y_true) + np.abs(y_pred) + 1e-8)) * 100
     
-    # Mean Absolute Percentage Error (MAPE)
-    # Only calculate for non-zero values
     non_zero_mask = np.abs(y_true) > 1e-8
     if np.any(non_zero_mask):
         mape = np.mean(np.abs((y_true[non_zero_mask] - y_pred[non_zero_mask]) / 
@@ -44,19 +38,16 @@ def calculate_metrics(y_true: torch.Tensor, y_pred: torch.Tensor,
     else:
         mape = np.nan
     
-    # R-squared score with handling for constant predictions
     y_mean = np.mean(y_true)
     ss_res = np.sum((y_true - y_pred) ** 2)
     ss_tot = np.sum((y_true - y_mean) ** 2)
     
-    if ss_tot < 1e-8:  # If y_true is constant
+    if ss_tot < 1e-8:
         r2 = 1.0 if ss_res < 1e-8 else 0.0
     else:
         r2 = 1 - (ss_res / ss_tot)
-        # Clip R² to prevent unreasonable negative values
         r2 = max(r2, -1.0)
     
-    # Normalized RMSE (as percentage of target mean)
     nrmse = (rmse / (np.abs(y_mean) + 1e-8)) * 100
     
     metrics = {
@@ -69,12 +60,10 @@ def calculate_metrics(y_true: torch.Tensor, y_pred: torch.Tensor,
         'r2': float(r2)
     }
     
-    # Calculate CRPS if uncertainty estimates are provided
     if y_std is not None:
         crps = calculate_crps(y_true, y_pred, y_std)
         metrics['crps'] = float(crps)
         
-        # Calculate calibration metrics
         calibration = calculate_calibration(y_true, y_pred, y_std)
         metrics.update(calibration)
     
@@ -94,14 +83,11 @@ def calculate_crps(y_true: np.ndarray, y_pred: np.ndarray, y_std: np.ndarray) ->
     Returns:
         CRPS score (lower is better)
     """
-    # Standardized error
     z = (y_true - y_pred) / (y_std + 1e-8)
     
-    # PDF and CDF of standard normal distribution
     pdf = norm.pdf(z)
     cdf = norm.cdf(z)
     
-    # CRPS formula for Gaussian predictive distributions
     crps = y_std * (z * (2 * cdf - 1) + 2 * pdf - 1 / np.sqrt(np.pi))
     
     return float(np.mean(crps))
@@ -118,27 +104,22 @@ def calculate_calibration(y_true: np.ndarray, y_pred: np.ndarray,
     Returns:
         Dictionary containing calibration metrics
     """
-    # Calculate standardized residuals
     z = (y_true - y_pred) / (y_std + 1e-8)
     
-    # Expected confidence levels
     confidence_levels = [0.5, 0.8, 0.9, 0.95, 0.99]
     
     calibration_metrics = {}
     
     for level in confidence_levels:
-        # Calculate expected and actual coverage
         z_score = norm.ppf((1 + level) / 2)
         expected_coverage = level
         actual_coverage = np.mean(np.abs(z) <= z_score)
         
-        # Calculate calibration error
         calibration_error = np.abs(actual_coverage - expected_coverage)
         
         calibration_metrics[f'calibration_{int(level*100)}'] = float(actual_coverage)
         calibration_metrics[f'calibration_error_{int(level*100)}'] = float(calibration_error)
     
-    # Add mean calibration error
     calibration_metrics['mean_calibration_error'] = float(
         np.mean([calibration_metrics[f'calibration_error_{int(level*100)}']
                 for level in confidence_levels])
@@ -173,11 +154,9 @@ def evaluate_predictions(model: torch.nn.Module,
             all_y_true.append(y.cpu().numpy())
             all_y_pred.append(y_pred.cpu().numpy())
     
-    # Concatenate batches
     y_true = np.concatenate(all_y_true)
     y_pred = np.concatenate(all_y_pred)
     
-    # Calculate metrics
     metrics = calculate_metrics(y_true, y_pred)
     
     if return_predictions:
